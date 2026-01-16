@@ -30,7 +30,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXP: ${JWT_EXPIRY:-3600}
     volumes:
-      - ./volumes/db/data:/var/lib/postgresql/data:Z
+      - supabase-db-data:/var/lib/postgresql/data
     healthcheck:
       test: pg_isready -U ${POSTGRES_USER:-postgres} -h localhost
       interval: 5s
@@ -200,7 +200,7 @@ services:
       ENABLE_IMAGE_TRANSFORMATION: "true"
       IMGPROXY_URL: http://imgproxy:8080
     volumes:
-      - ./volumes/storage:/var/lib/storage:z
+      - supabase-storage-data:/var/lib/storage
     networks:
       - internal
 
@@ -217,7 +217,7 @@ services:
       IMGPROXY_USE_ETAG: "true"
       IMGPROXY_ENABLE_WEBP_DETECTION: "true"
     volumes:
-      - ./volumes/storage:/var/lib/storage:ro
+      - supabase-storage-data:/var/lib/storage:ro
     networks:
       - internal
 
@@ -289,6 +289,13 @@ services:
       - "traefik.http.services.supabase-studio.loadbalancer.server.port=3000"
       # Watchtower
       - "com.centurylinklabs.watchtower.enable=true"
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+volumes:
+  supabase-db-data:
+  supabase-storage-data:
 
 # =============================================================================
 # NETWORKS
