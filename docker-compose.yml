@@ -279,10 +279,13 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=${TRAEFIK_NETWORK:-proxy}"
-      # HTTP Router with Basic Auth
+      # HTTP Router - Redirect to HTTPS
       - "traefik.http.routers.supabase-studio.entrypoints=${TRAEFIK_ENDPOINT_HTTP_NAME:-web}"
       - "traefik.http.routers.supabase-studio.rule=Host(`studio.${DOMAIN}`)"
-      - "traefik.http.routers.supabase-studio.middlewares=supabase-auth"
+      - "traefik.http.routers.supabase-studio.middlewares=supabase-studio-https-redirect"
+      # HTTPS Redirect Middleware
+      - "traefik.http.middlewares.supabase-studio-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.supabase-studio-https-redirect.redirectscheme.permanent=true"
       # HTTPS Router with Basic Auth
       - "traefik.http.routers.supabase-studio_secure.entrypoints=${TRAEFIK_ENDPOINT_HTTPS_NAME:-web_secure}"
       - "traefik.http.routers.supabase-studio_secure.rule=Host(`studio.${DOMAIN}`)"
