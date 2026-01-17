@@ -204,6 +204,8 @@ services:
       GLOBAL_S3_BUCKET: stub
       ENABLE_IMAGE_TRANSFORMATION: "true"
       IMGPROXY_URL: http://imgproxy:8080
+      # Public URL for signed URL generation (required for self-hosted)
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL}
     volumes:
       - supabase-storage-data:/var/lib/storage
     networks:
