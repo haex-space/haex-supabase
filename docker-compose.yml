@@ -53,6 +53,8 @@ services:
     image: ${KONG_IMAGE:-kong:2.8.1}
     container_name: supabase-kong
     restart: unless-stopped
+    # Custom entrypoint to substitute environment variables in kong.yml using sed
+    entrypoint: bash -c 'sed "s|\$${SUPABASE_ANON_KEY}|$$SUPABASE_ANON_KEY|g; s|\$${SUPABASE_SERVICE_KEY}|$$SUPABASE_SERVICE_KEY|g" /home/kong/temp.yml > /home/kong/kong.yml && /docker-entrypoint.sh kong docker-start'
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
@@ -63,7 +65,7 @@ services:
       SUPABASE_ANON_KEY: ${ANON_KEY}
       SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
     volumes:
-      - ./config/kong.yml:/home/kong/kong.yml:ro
+      - ./config/kong.yml:/home/kong/temp.yml:ro
     depends_on:
       db:
         condition: service_healthy
