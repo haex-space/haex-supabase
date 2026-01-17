@@ -153,7 +153,10 @@ services:
   # ===========================================================================
   realtime:
     image: ${REALTIME_IMAGE:-supabase/realtime:v2.34.47}
-    container_name: supabase-realtime
+    # Container name must include tenant prefix for multi-tenant routing
+    # Realtime constructs tenant id by parsing the subdomain
+    container_name: ${REALTIME_TENANT_NAME:-haex}.supabase-realtime
+    hostname: ${REALTIME_TENANT_NAME:-haex}.supabase-realtime
     restart: unless-stopped
     depends_on:
       db:
@@ -174,6 +177,7 @@ services:
       RLIMIT_NOFILE: "10000"
       APP_NAME: realtime
       SEED_SELF_HOST: "true"
+      SELF_HOST_TENANT_NAME: ${REALTIME_TENANT_NAME:-haex}
       RLS_POLL_INTERVAL: "60"
     networks:
       - internal
