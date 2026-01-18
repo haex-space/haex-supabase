@@ -1,8 +1,8 @@
 # =============================================================================
-# SUPABASE SELF-HOSTED - Production Configuration with Traefik
+# SUPABASE SELF-HOSTED - Sync Server Instance
 # =============================================================================
 # Based on: https://github.com/supabase/supabase/blob/master/docker/docker-compose.yml
-# Adapted for Traefik reverse proxy on haex.space
+# Adapted for Traefik reverse proxy - Sync Supabase at api.sync.haex.space
 
 services:
   # ===========================================================================
@@ -10,7 +10,7 @@ services:
   # ===========================================================================
   db:
     image: ${POSTGRES_IMAGE:-supabase/postgres:latest}
-    container_name: supabase-db
+    container_name: sync-supabase-db
     restart: unless-stopped
     command:
       - postgres
@@ -30,7 +30,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXP: ${JWT_EXPIRY:-3600}
     volumes:
-      - supabase-db-data:/var/lib/postgresql/data
+      - sync-supabase-db-data:/var/lib/postgresql/data
       - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
       - ./volumes/db/webhooks.sql:/docker-entrypoint-initdb.d/init-scripts/98-webhooks.sql:Z
       - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
@@ -51,7 +51,7 @@ services:
   # ===========================================================================
   kong:
     image: ${KONG_IMAGE:-kong:2.8.1}
-    container_name: supabase-kong
+    container_name: sync-supabase-kong
     restart: unless-stopped
     # Custom entrypoint to substitute environment variables in kong.yml using sed
     entrypoint: bash -c 'sed "s|\$${SUPABASE_ANON_KEY}|$$SUPABASE_ANON_KEY|g; s|\$${SUPABASE_SERVICE_KEY}|$$SUPABASE_SERVICE_KEY|g" /home/kong/temp.yml > /home/kong/kong.yml && /docker-entrypoint.sh kong docker-start'
@@ -76,15 +76,15 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=${TRAEFIK_NETWORK:-proxy}"
       # HTTP Router
-      - "traefik.http.routers.supabase.entrypoints=${TRAEFIK_ENDPOINT_HTTP_NAME:-web}"
-      - "traefik.http.routers.supabase.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.sync-supabase.entrypoints=${TRAEFIK_ENDPOINT_HTTP_NAME:-web}"
+      - "traefik.http.routers.sync-supabase.rule=Host(`${DOMAIN}`)"
       # HTTPS Router
-      - "traefik.http.routers.supabase_secure.entrypoints=${TRAEFIK_ENDPOINT_HTTPS_NAME:-web_secure}"
-      - "traefik.http.routers.supabase_secure.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.supabase_secure.tls=true"
-      - "traefik.http.routers.supabase_secure.tls.certresolver=${TRAEFIK_LETS_ENCRYPT_RESOLVER:-http_resolver}"
+      - "traefik.http.routers.sync-supabase_secure.entrypoints=${TRAEFIK_ENDPOINT_HTTPS_NAME:-web_secure}"
+      - "traefik.http.routers.sync-supabase_secure.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.sync-supabase_secure.tls=true"
+      - "traefik.http.routers.sync-supabase_secure.tls.certresolver=${TRAEFIK_LETS_ENCRYPT_RESOLVER:-http_resolver}"
       # Service
-      - "traefik.http.services.supabase.loadbalancer.server.port=8000"
+      - "traefik.http.services.sync-supabase.loadbalancer.server.port=8000"
       # Watchtower
       - "com.centurylinklabs.watchtower.enable=true"
 
@@ -93,7 +93,7 @@ services:
   # ===========================================================================
   auth:
     image: ${GOTRUE_IMAGE:-supabase/gotrue:latest}
-    container_name: supabase-auth
+    container_name: sync-supabase-auth
     restart: unless-stopped
     depends_on:
       db:
@@ -134,7 +134,7 @@ services:
   # ===========================================================================
   rest:
     image: ${POSTGREST_IMAGE:-postgrest/postgrest:latest}
-    container_name: supabase-rest
+    container_name: sync-supabase-rest
     restart: unless-stopped
     depends_on:
       db:
@@ -157,8 +157,8 @@ services:
     image: ${REALTIME_IMAGE:-supabase/realtime:latest}
     # Container name must include tenant prefix for multi-tenant routing
     # Realtime constructs tenant id by parsing the subdomain
-    container_name: ${REALTIME_TENANT_NAME:-haex}.supabase-realtime
-    hostname: ${REALTIME_TENANT_NAME:-haex}.supabase-realtime
+    container_name: ${REALTIME_TENANT_NAME:-sync}.sync-supabase-realtime
+    hostname: ${REALTIME_TENANT_NAME:-sync}.sync-supabase-realtime
     restart: unless-stopped
     depends_on:
       db:
@@ -179,7 +179,7 @@ services:
       RLIMIT_NOFILE: "10000"
       APP_NAME: realtime
       SEED_SELF_HOST: "true"
-      SELF_HOST_TENANT_NAME: ${REALTIME_TENANT_NAME:-haex}
+      SELF_HOST_TENANT_NAME: ${REALTIME_TENANT_NAME:-sync}
       RLS_POLL_INTERVAL: "60"
     networks:
       - internal
@@ -189,7 +189,7 @@ services:
   # ===========================================================================
   storage:
     image: ${STORAGE_IMAGE:-supabase/storage-api:latest}
-    container_name: supabase-storage
+    container_name: sync-supabase-storage
     restart: unless-stopped
     depends_on:
       db:
@@ -213,7 +213,7 @@ services:
       # Public URL for signed URL generation (required for self-hosted)
       API_EXTERNAL_URL: ${API_EXTERNAL_URL}
     volumes:
-      - supabase-storage-data:/var/lib/storage
+      - sync-supabase-storage-data:/var/lib/storage
     networks:
       - internal
 
@@ -222,7 +222,7 @@ services:
   # ===========================================================================
   imgproxy:
     image: darthsim/imgproxy:v3.8.0
-    container_name: supabase-imgproxy
+    container_name: sync-supabase-imgproxy
     restart: unless-stopped
     environment:
       IMGPROXY_BIND: ":8080"
@@ -230,7 +230,7 @@ services:
       IMGPROXY_USE_ETAG: "true"
       IMGPROXY_ENABLE_WEBP_DETECTION: "true"
     volumes:
-      - supabase-storage-data:/var/lib/storage:ro
+      - sync-supabase-storage-data:/var/lib/storage:ro
     networks:
       - internal
 
@@ -239,7 +239,7 @@ services:
   # ===========================================================================
   meta:
     image: ${META_IMAGE:-supabase/postgres-meta:latest}
-    container_name: supabase-meta
+    container_name: sync-supabase-meta
     restart: unless-stopped
     depends_on:
       db:
@@ -259,7 +259,7 @@ services:
   # ===========================================================================
   studio:
     image: ${STUDIO_IMAGE:-supabase/studio:latest}
-    container_name: supabase-studio
+    container_name: sync-supabase-studio
     restart: unless-stopped
     depends_on:
       db:
@@ -271,7 +271,7 @@ services:
       STUDIO_PG_META_URL: http://meta:8080
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       DEFAULT_ORGANIZATION_NAME: HaexHub
-      DEFAULT_PROJECT_NAME: Supabase
+      DEFAULT_PROJECT_NAME: Sync
       SUPABASE_URL: http://kong:8000
       SUPABASE_PUBLIC_URL: ${API_EXTERNAL_URL}
       SUPABASE_ANON_KEY: ${ANON_KEY}
@@ -288,22 +288,22 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=${TRAEFIK_NETWORK:-proxy}"
       # HTTP Router - Redirect to HTTPS
-      - "traefik.http.routers.supabase-studio.entrypoints=${TRAEFIK_ENDPOINT_HTTP_NAME:-web}"
-      - "traefik.http.routers.supabase-studio.rule=Host(`${STUDIO_DOMAIN}`)"
-      - "traefik.http.routers.supabase-studio.middlewares=supabase-studio-https-redirect"
+      - "traefik.http.routers.sync-supabase-studio.entrypoints=${TRAEFIK_ENDPOINT_HTTP_NAME:-web}"
+      - "traefik.http.routers.sync-supabase-studio.rule=Host(`${STUDIO_DOMAIN}`)"
+      - "traefik.http.routers.sync-supabase-studio.middlewares=sync-supabase-studio-https-redirect"
       # HTTPS Redirect Middleware
-      - "traefik.http.middlewares.supabase-studio-https-redirect.redirectscheme.scheme=https"
-      - "traefik.http.middlewares.supabase-studio-https-redirect.redirectscheme.permanent=true"
+      - "traefik.http.middlewares.sync-supabase-studio-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.sync-supabase-studio-https-redirect.redirectscheme.permanent=true"
       # HTTPS Router with Basic Auth
-      - "traefik.http.routers.supabase-studio_secure.entrypoints=${TRAEFIK_ENDPOINT_HTTPS_NAME:-web_secure}"
-      - "traefik.http.routers.supabase-studio_secure.rule=Host(`${STUDIO_DOMAIN}`)"
-      - "traefik.http.routers.supabase-studio_secure.tls=true"
-      - "traefik.http.routers.supabase-studio_secure.tls.certresolver=${TRAEFIK_LETS_ENCRYPT_RESOLVER:-http_resolver}"
-      - "traefik.http.routers.supabase-studio_secure.middlewares=supabase-auth"
+      - "traefik.http.routers.sync-supabase-studio_secure.entrypoints=${TRAEFIK_ENDPOINT_HTTPS_NAME:-web_secure}"
+      - "traefik.http.routers.sync-supabase-studio_secure.rule=Host(`${STUDIO_DOMAIN}`)"
+      - "traefik.http.routers.sync-supabase-studio_secure.tls=true"
+      - "traefik.http.routers.sync-supabase-studio_secure.tls.certresolver=${TRAEFIK_LETS_ENCRYPT_RESOLVER:-http_resolver}"
+      - "traefik.http.routers.sync-supabase-studio_secure.middlewares=sync-supabase-auth"
       # Basic Auth Middleware
-      - "traefik.http.middlewares.supabase-auth.basicauth.users=${DASHBOARD_USERNAME}:${DASHBOARD_PASSWORD_HASH}"
+      - "traefik.http.middlewares.sync-supabase-auth.basicauth.users=${DASHBOARD_USERNAME}:${DASHBOARD_PASSWORD_HASH}"
       # Service
-      - "traefik.http.services.supabase-studio.loadbalancer.server.port=3000"
+      - "traefik.http.services.sync-supabase-studio.loadbalancer.server.port=3000"
       # Watchtower
       - "com.centurylinklabs.watchtower.enable=true"
 
@@ -311,17 +311,16 @@ services:
 # VOLUMES
 # =============================================================================
 volumes:
-  supabase-db-data:
-  supabase-storage-data:
+  sync-supabase-db-data:
+  sync-supabase-storage-data:
 
 # =============================================================================
 # NETWORKS
 # =============================================================================
 networks:
   internal:
-    name: haex-supabase_internal
+    name: haex-sync-supabase_internal
     driver: bridge
   proxy:
     name: ${TRAEFIK_NETWORK:-proxy}
     external: true
-
